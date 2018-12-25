@@ -29,6 +29,10 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=4, shuffle=False, n
 classes = ('plane', 'car', 'bird', 'cat', 'deer',
             'dog', 'frog', 'horse', 'ship', 'truck');
 
+# define a cuda device to be used if available
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu");
+print(device);
+
 # show some of the training images for fun
 # functions to show an image
 def imshow(img):
@@ -56,9 +60,9 @@ class Net(nn.Module):
 
     def __init__(self):
         super(Net, self).__init__();
-        self.conv1 = nn.Conv2d(3, 6, 5);
+        self.conv1 = nn.Conv2d(3, 10, 5);
         self.pool = nn.MaxPool2d(2, 2);
-        self.conv2 = nn.Conv2d(6, 16, 5);
+        self.conv2 = nn.Conv2d(10, 16, 5);
         self.fc1 = nn.Linear(16 * 5 * 5, 120);
         self.fc2 = nn.Linear(120, 84);
         self.fc3 = nn.Linear(84, 10);
@@ -73,6 +77,7 @@ class Net(nn.Module):
         return x;
 
 net = Net();
+net.to(device);
 
 # Define a loss function and optimizer
 criterion = nn.CrossEntropyLoss();
@@ -84,8 +89,10 @@ for epoch in range(2): # loop over the dataset multiple times
     running_loss = 0.0;
     for i, data in enumerate(trainloader, 0):
         # get the inputs
-        inputs, labels = data;
 
+        inputs, labels = data;
+        inputs, labels = inputs.to(device), labels.to(device);
+        
         # zero the parameter gradients
         optimizer.zero_grad();
 
@@ -111,3 +118,35 @@ images, labels = dataiter.next();
 # print images
 imshow(torchvision.utils.make_grid(images));
 print('GroundTruth: ', ' '.join('%5s' % classes[labels[j]] for j in range(4)));
+
+
+# determine the overall accuracy of the network
+correct = 0;
+total = 0;
+with torch.no_grad():
+    for data in testloader:
+        images, labels = data;
+        outputs = net(images);
+        _, predicted = torch.max(outputs.data, 1);
+        total += labels.size(0);
+        correct += (predicted == labels).sum().item();
+
+print('Accuracy of the network on the 10000 test images: %d %%' % (
+    100 * correct / total));
+
+# determine the accuracy of each image class
+class_correct = list(0. for i in range(10));
+class_total = list(0. for i in range(10));
+with torch.no_grad():
+    for data in testloader:
+        images, labels = data;
+        outputs = net(images);
+        _, predicted = torch.max(outputs, 1);
+        c = (predicted == labels).squeeze();
+        for i in range(4):
+            label = labels[i];
+            class_correct[label] += c[i].item();
+            class_total[label] += 1;
+for i in range(10):
+    print('Accuracy of %5s : %2d %%' % (
+    classes[i], 100 * class_correct[i] / class_total[i]));

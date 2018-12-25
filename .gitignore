@@ -2,3 +2,6 @@ bin/
 lib*
 include/
 pyvenv.cfg
+data/
+python3*
+*selfcheck*
